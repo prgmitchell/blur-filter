@@ -1,0 +1,46 @@
+#include "common.effect"
+
+//------------------------------------------------------------------------------
+// Technique: Down
+//------------------------------------------------------------------------------
+float4 PSDown(VertexInformation vtx) : TARGET {
+	float4 pxCC = pImage.Sample(LinearClampSampler, vtx.uv) * 4.0;
+	float4 pxTL = pImage.Sample(LinearClampSampler, vtx.uv - pImageTexel.xy);
+	float4 pxTR = pImage.Sample(LinearClampSampler, vtx.uv + pImageTexel.xy);
+	float4 pxBL = pImage.Sample(LinearClampSampler, vtx.uv + float2(pImageTexel.x, -pImageTexel.y));
+	float4 pxBR = pImage.Sample(LinearClampSampler, vtx.uv - float2(pImageTexel.x, -pImageTexel.y));
+	
+	return (pxCC + pxTL + pxTR + pxBL + pxBR) * 0.125;
+	// return (pxCC + pxTL + pxTR + pxBL + pxBR) / 8;
+}
+
+technique Down {
+	pass {
+		vertex_shader = VSDefault(vtx);
+		pixel_shader  = PSDown(vtx);
+	}
+}
+
+//------------------------------------------------------------------------------
+// Technique: Up
+//------------------------------------------------------------------------------
+float4 PSUp(VertexInformation vtx) : TARGET {
+	float4 pxL  = pImage.Sample(LinearClampSampler, vtx.uv + float2(-pImageTexel.x * 2,  0.           ));
+	float4 pxBL = pImage.Sample(LinearClampSampler, vtx.uv + float2(-pImageTexel.x,      pImageTexel.y)); // * 2.0
+	float4 pxB  = pImage.Sample(LinearClampSampler, vtx.uv + float2( 0.,                 pImageTexel.y * 2));
+	float4 pxBR = pImage.Sample(LinearClampSampler, vtx.uv + float2( pImageTexel.x,      pImageTexel.y)); // * 2.0
+	float4 pxR  = pImage.Sample(LinearClampSampler, vtx.uv + float2( pImageTexel.x * 2,  0.           ));
+	float4 pxTR = pImage.Sample(LinearClampSampler, vtx.uv + float2( pImageTexel.x,     -pImageTexel.y)); // * 2.0
+	float4 pxT  = pImage.Sample(LinearClampSampler, vtx.uv + float2( 0.,                -pImageTexel.y * 2));
+	float4 pxTL = pImage.Sample(LinearClampSampler, vtx.uv + float2(-pImageTexel.x,     -pImageTexel.y)); // * 2.0
+
+	return (((pxTL + pxTR + pxBL + pxBR) * 2.0) + pxL + pxR + pxT + pxB) * 0.083333333333;
+	// return (((pxTL + pxTR + pxBL + pxBR) * 2.0) + pxL + pxR + pxT + pxB) / 12;
+}
+
+technique Up {
+	pass {
+		vertex_shader = VSDefault(vtx);
+		pixel_shader  = PSUp(vtx);
+	}
+}

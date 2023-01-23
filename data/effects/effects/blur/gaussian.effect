@@ -1,0 +1,130 @@
+#include "common.effect"
+
+//------------------------------------------------------------------------------
+// Uniforms
+//------------------------------------------------------------------------------
+// This shader requires that pSize is the number of samples, not the size of the
+// kernel. That way oversampling can be performed, which is much more accurate than
+
+//------------------------------------------------------------------------------
+// Defines
+//------------------------------------------------------------------------------
+#define MAX_SAMPLES 128u
+
+//------------------------------------------------------------------------------
+// Technique: Directional / Area
+//------------------------------------------------------------------------------
+float4 PSBlur1D(VertexInformation vtx) : TARGET {
+	float2 uvstep = pImageTexel * pStepScale;
+	float weights = 0;
+
+	// Move to texel center.
+	vtx.uv.xy += pImageTexel.xy / 2.;
+
+	// Calculate the actual Gaussian Blur
+	// 1. Sample the center immediately.
+	float kernel = kernelAt(0u);
+	weights += kernel;
+	float4 final = pImage.Sample(LinearClampSampler, vtx.uv) * kernel;
+
+	// 2. Then sample both + and - coordinates in one go to reduce code iterations.
+	for (uint step = 1u; (step < uint(pSize)) && (step < MAX_SAMPLES); step++) {
+		float2 offset = uvstep * float2(step, step);
+		kernel = kernelAt(step);
+		weights += kernel * 2.;
+
+		final += pImage.Sample(LinearClampSampler, vtx.uv + offset) * kernel;
+		final += pImage.Sample(LinearClampSampler, vtx.uv - offset) * kernel;
+	}
+
+	// 3. Ensure we always have a total of 1.0, even if the kernel is bad.
+	final /= weights;
+
+	return final;
+}
+
+technique Draw {
+	pass {
+		vertex_shader = VSDefault(vtx);
+		pixel_shader  = PSBlur1D(vtx);
+	}
+}
+
+//------------------------------------------------------------------------------
+// Technique: Rotate
+//------------------------------------------------------------------------------
+float4 PSRotate(VertexInformation vtx) : TARGET {
+	float angstep = pAngle * pStepScale.x;
+	float weights = 0.;
+
+	// Move to texel center.
+	vtx.uv.xy += pImageTexel.xy / 2.;
+
+	// Calculate the actual Gaussian Blur
+	// 1. Sample the center immediately.
+	float kernel = kernelAt(0u);
+	weights += kernel;
+	float4 final = pImage.Sample(LinearClampSampler, vtx.uv) * kernel;
+
+	// 2. Then sample both + and - coordinates in one go to reduce code iterations.
+	for (uint step = 1u; (step < uint(pSize)) && (step < MAX_SAMPLES); step++) {
+		float offset = angstep * step;
+		kernel = kernelAt(step);
+		weights += kernel * 2.;
+
+		final += pImage.Sample(LinearClampSampler, rotateAround(vtx.uv, pCenter, offset)) * kernel;
+		final += pImage.Sample(LinearClampSampler, rotateAround(vtx.uv, pCenter, -offset)) * kernel;
+	}
+
+	// 3. Ensure we always have a total of 1.0, even if the kernel is bad.
+	final /= weights;
+
+	return final;
+}
+
+technique Rotate {
+	pass {
+		vertex_shader = VSDefault(vtx);
+		pixel_shader  = PSRotate(vtx);
+	}
+}
+
+//------------------------------------------------------------------------------
+// Technique: Zoom
+//------------------------------------------------------------------------------
+float4 PSZoom(VertexInformation vtx) : TARGET {
+	float2 dir = normalize(vtx.uv - pCenter) * pStepScale * pImageTexel;
+	float dist = distance(vtx.uv, pCenter);
+	float weights = 0.;
+
+	// Move to texel center.
+	vtx.uv.xy += pImageTexel.xy / 2.;
+
+	// Calculate the actual Gaussian Blur
+	// 1. Sample the center immediately.
+	float kernel = kernelAt(0u);
+	weights += kernel;
+	float4 final = pImage.Sample(LinearClampSampler, vtx.uv) * kernel;
+
+	// 2. Then sample both + and - coordinates in one go to reduce code iterations.
+	for (uint step = 1u; (step < uint(pSize)) && (step < MAX_SAMPLES); step++) {
+		float2 offset = dir * step * dist;
+		kernel = kernelAt(step);
+		weights += kernel * 2.;
+
+		final += pImage.Sample(LinearClampSampler, vtx.uv + offset) * kernel;
+		final += pImage.Sample(LinearClampSampler, vtx.uv - offset) * kernel;
+	}
+
+	// 3. Ensure we always have a total of 1.0, even if the kernel is bad.
+	final /= weights;
+
+	return final;
+}
+
+technique Zoom {
+	pass {
+		vertex_shader = VSDefault(vtx);
+		pixel_shader  = PSZoom(vtx);
+	}
+}
