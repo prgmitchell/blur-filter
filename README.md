@@ -11,4 +11,5 @@ Installation:
 
 
 Link to the streamFX Github: https://github.com/Xaymar/obs-StreamFX
+
 Link to the streamFX Wiki on the blur filter: https://github.com/Xaymar/obs-StreamFX/wiki/Filter-Blur
