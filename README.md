@@ -5,8 +5,8 @@ I take zero credit for the source code provided on this repository. This is just
 those who want a standalone version. All credit goes to the original author Xaymar.
 
 Installation:
-1) Run the installer
-2) Select your obs-studio installation folder, the default is already set as C:\Program Files\obs-studio
+1) Download and run the installer.
+2) Select your obs-studio installation folder, the default is already set as C:\Program Files\obs-studio.
 3) Open OBS and add a "Blur" filter to whatever source you want to blur.
 
 
