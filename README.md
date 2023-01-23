@@ -8,3 +8,6 @@ Installation:
 1) Run the installer
 2) Select your obs-studio installation folder, the default is already set as C:\Program Files\obs-studio
 3) Open OBS and add a "Blur" filter to whatever source you want to blur.
+
+
+Link to the streamFX Github: https://github.com/Xaymar/obs-StreamFX
