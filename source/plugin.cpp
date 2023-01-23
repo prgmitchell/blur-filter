@@ -1,0 +1,351 @@
+/*
+ * Modern effects for a modern Streamer
+ * Copyright (C) 2017 Michael Fabian Dirks
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+*/
+
+#include "plugin.hpp"
+#include "configuration.hpp"
+#include "gfx/gfx-opengl.hpp"
+#include "obs/gs/gs-helper.hpp"
+#include "obs/gs/gs-vertexbuffer.hpp"
+#include "obs/obs-source-tracker.hpp"
+
+#ifdef ENABLE_NVIDIA_CUDA
+#include "nvidia/cuda/nvidia-cuda-obs.hpp"
+#endif
+
+#ifdef ENABLE_ENCODER_AOM_AV1
+#include "encoders/encoder-aom-av1.hpp"
+#endif
+#ifdef ENABLE_ENCODER_FFMPEG
+#include "encoders/encoder-ffmpeg.hpp"
+#endif
+
+#ifdef ENABLE_FILTER_AUTOFRAMING
+#include "filters/filter-autoframing.hpp"
+#endif
+#ifdef ENABLE_FILTER_BLUR
+#include "filters/filter-blur.hpp"
+#endif
+#ifdef ENABLE_FILTER_COLOR_GRADE
+#include "filters/filter-color-grade.hpp"
+#endif
+#ifdef ENABLE_FILTER_DENOISING
+#include "filters/filter-denoising.hpp"
+#endif
+#ifdef ENABLE_FILTER_DISPLACEMENT
+#include "filters/filter-displacement.hpp"
+#endif
+#ifdef ENABLE_FILTER_DYNAMIC_MASK
+#include "filters/filter-dynamic-mask.hpp"
+#endif
+#ifdef ENABLE_FILTER_SDF_EFFECTS
+#include "filters/filter-sdf-effects.hpp"
+#endif
+#ifdef ENABLE_FILTER_SHADER
+#include "filters/filter-shader.hpp"
+#endif
+#ifdef ENABLE_FILTER_TRANSFORM
+#include "filters/filter-transform.hpp"
+#endif
+#ifdef ENABLE_FILTER_UPSCALING
+#include "filters/filter-upscaling.hpp"
+#endif
+#ifdef ENABLE_FILTER_VIRTUAL_GREENSCREEN
+#include "filters/filter-virtual-greenscreen.hpp"
+#endif
+
+#ifdef ENABLE_SOURCE_MIRROR
+#include "sources/source-mirror.hpp"
+#endif
+#ifdef ENABLE_SOURCE_SHADER
+#include "sources/source-shader.hpp"
+#endif
+
+#ifdef ENABLE_TRANSITION_SHADER
+#include "transitions/transition-shader.hpp"
+#endif
+
+#ifdef ENABLE_FRONTEND
+#include "ui/ui.hpp"
+#endif
+
+#ifdef ENABLE_UPDATER
+#include "updater.hpp"
+//static std::shared_ptr<streamfx::updater> _updater;
+#endif
+
+#include "warning-disable.hpp"
+#include <fstream>
+#include <stdexcept>
+#include "warning-enable.hpp"
+
+static std::shared_ptr<streamfx::util::threadpool::threadpool> _threadpool;
+static std::shared_ptr<streamfx::gfx::opengl>                  _streamfx_gfx_opengl;
+static std::shared_ptr<streamfx::obs::source_tracker>          _source_tracker;
+
+MODULE_EXPORT bool obs_module_load(void)
+{
+	try {
+		DLOG_INFO("Loading Version %s", STREAMFX_VERSION_STRING);
+
+		// Initialize global configuration.
+		streamfx::configuration::initialize();
+
+		// Initialize global Thread Pool.
+		_threadpool = std::make_shared<streamfx::util::threadpool::threadpool>();
+
+		// Initialize Source Tracker
+		_source_tracker = streamfx::obs::source_tracker::get();
+
+		// Initialize GLAD (OpenGL)
+		{
+			streamfx::obs::gs::context gctx{};
+			if (gs_get_device_type() == GS_DEVICE_OPENGL) {
+				_streamfx_gfx_opengl = streamfx::gfx::opengl::get();
+			}
+		}
+
+#ifdef ENABLE_NVIDIA_CUDA
+		// Initialize CUDA if features requested it.
+		std::shared_ptr<::streamfx::nvidia::cuda::obs> cuda;
+		try {
+			cuda = ::streamfx::nvidia::cuda::obs::get();
+		} catch (...) {
+			// If CUDA failed to load, it is considered safe to ignore.
+		}
+#endif
+
+		// Encoders
+		{
+#ifdef ENABLE_ENCODER_AOM_AV1
+			streamfx::encoder::aom::av1::aom_av1_factory::initialize();
+#endif
+#ifdef ENABLE_ENCODER_FFMPEG
+			using namespace streamfx::encoder::ffmpeg;
+			ffmpeg_manager::initialize();
+#endif
+		}
+
+		// Filters
+		{
+#ifdef ENABLE_FILTER_AUTOFRAMING
+			streamfx::filter::autoframing::autoframing_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_BLUR
+			streamfx::filter::blur::blur_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_COLOR_GRADE
+			streamfx::filter::color_grade::color_grade_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_DENOISING
+			streamfx::filter::denoising::denoising_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_DISPLACEMENT
+			streamfx::filter::displacement::displacement_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_DYNAMIC_MASK
+			streamfx::filter::dynamic_mask::dynamic_mask_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_SDF_EFFECTS
+			streamfx::filter::sdf_effects::sdf_effects_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_SHADER
+			streamfx::filter::shader::shader_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_TRANSFORM
+			streamfx::filter::transform::transform_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_UPSCALING
+			streamfx::filter::upscaling::upscaling_factory::initialize();
+#endif
+#ifdef ENABLE_FILTER_VIRTUAL_GREENSCREEN
+			streamfx::filter::virtual_greenscreen::virtual_greenscreen_factory::initialize();
+#endif
+		}
+
+		// Sources
+		{
+#ifdef ENABLE_SOURCE_MIRROR
+			streamfx::source::mirror::mirror_factory::initialize();
+#endif
+#ifdef ENABLE_SOURCE_SHADER
+			streamfx::source::shader::shader_factory::initialize();
+#endif
+		}
+
+		// Transitions
+		{
+#ifdef ENABLE_TRANSITION_SHADER
+			streamfx::transition::shader::shader_factory::initialize();
+#endif
+		}
+
+// Frontend
+#ifdef ENABLE_FRONTEND
+		streamfx::ui::handler::initialize();
+#endif
+
+		DLOG_INFO("Loaded Version %s", STREAMFX_VERSION_STRING);
+		return true;
+	} catch (std::exception const& ex) {
+		DLOG_ERROR("Unexpected exception in function '%s': %s", __FUNCTION_NAME__, ex.what());
+		return false;
+	} catch (...) {
+		DLOG_ERROR("Unexpected exception in function '%s'.", __FUNCTION_NAME__);
+		return false;
+	}
+}
+
+MODULE_EXPORT void obs_module_unload(void)
+{
+	try {
+		DLOG_INFO("Unloading Version %s", STREAMFX_VERSION_STRING);
+
+		// Frontend
+#ifdef ENABLE_FRONTEND
+		streamfx::ui::handler::finalize();
+#endif
+
+		// Transitions
+		{
+#ifdef ENABLE_TRANSITION_SHADER
+			streamfx::transition::shader::shader_factory::finalize();
+#endif
+		}
+
+		// Sources
+		{
+#ifdef ENABLE_SOURCE_MIRROR
+			streamfx::source::mirror::mirror_factory::finalize();
+#endif
+#ifdef ENABLE_SOURCE_SHADER
+			streamfx::source::shader::shader_factory::finalize();
+#endif
+		}
+
+		// Filters
+		{
+#ifdef ENABLE_FILTER_AUTOFRAMING
+			streamfx::filter::autoframing::autoframing_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_BLUR
+			streamfx::filter::blur::blur_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_COLOR_GRADE
+			streamfx::filter::color_grade::color_grade_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_DENOISING
+			streamfx::filter::denoising::denoising_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_DISPLACEMENT
+			streamfx::filter::displacement::displacement_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_DYNAMIC_MASK
+			streamfx::filter::dynamic_mask::dynamic_mask_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_SDF_EFFECTS
+			streamfx::filter::sdf_effects::sdf_effects_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_SHADER
+			streamfx::filter::shader::shader_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_TRANSFORM
+			streamfx::filter::transform::transform_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_UPSCALING
+			streamfx::filter::upscaling::upscaling_factory::finalize();
+#endif
+#ifdef ENABLE_FILTER_VIRTUAL_GREENSCREEN
+			streamfx::filter::virtual_greenscreen::virtual_greenscreen_factory::finalize();
+#endif
+		}
+
+		// Encoders
+		{
+#ifdef ENABLE_ENCODER_FFMPEG
+			streamfx::encoder::ffmpeg::ffmpeg_manager::finalize();
+#endif
+#ifdef ENABLE_ENCODER_AOM_AV1
+			streamfx::encoder::aom::av1::aom_av1_factory::finalize();
+#endif
+		}
+
+		// Finalize GLAD (OpenGL)
+		{
+			streamfx::obs::gs::context gctx{};
+			_streamfx_gfx_opengl.reset();
+		}
+
+		// Finalize Source Tracker
+		_source_tracker.reset();
+
+		//	// Auto-Updater
+		//#ifdef ENABLE_UPDATER
+		//	_updater.reset();
+		//#endif
+
+		// Finalize Configuration
+		streamfx::configuration::finalize();
+
+		// Finalize Thread Pool
+		_threadpool.reset();
+
+		DLOG_INFO("Unloaded Version %s", STREAMFX_VERSION_STRING);
+	} catch (std::exception const& ex) {
+		DLOG_ERROR("Unexpected exception in function '%s': %s", __FUNCTION_NAME__, ex.what());
+	} catch (...) {
+		DLOG_ERROR("Unexpected exception in function '%s'.", __FUNCTION_NAME__);
+	}
+}
+
+std::shared_ptr<streamfx::util::threadpool::threadpool> streamfx::threadpool()
+{
+	return _threadpool;
+}
+
+std::filesystem::path streamfx::data_file_path(std::string_view file)
+{
+	const char* root_path = obs_get_module_data_path(obs_current_module());
+	if (root_path) {
+		auto ret = std::filesystem::u8path(root_path);
+		ret.append(file.data());
+		return ret;
+	} else {
+		throw std::runtime_error("obs_get_module_data_path returned nullptr");
+	}
+}
+
+std::filesystem::path streamfx::config_file_path(std::string_view file)
+{
+	char* root_path = obs_module_get_config_path(obs_current_module(), file.data());
+	if (root_path) {
+		auto ret = std::filesystem::u8path(root_path);
+		bfree(root_path);
+		return ret;
+	} else {
+		throw std::runtime_error("obs_module_get_config_path returned nullptr");
+	}
+}
+
+#ifdef ENABLE_FRONTEND
+bool streamfx::open_url(std::string_view url)
+{
+	QUrl qurl = QString::fromUtf8(url.data());
+	return QDesktopServices::openUrl(qurl);
+}
+#endif
