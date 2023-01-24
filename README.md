@@ -1,5 +1,5 @@
 # blur-filter
-The blur filter from the streamFX plugin packaged on it's own.
+The blur filter from the streamFX plugin packaged on its own.
 
 I take zero credit for the source code provided on this repository. This is just the blur filter from the streamFX plugin for
 those who want a standalone version. All credit goes to the original author Xaymar.
