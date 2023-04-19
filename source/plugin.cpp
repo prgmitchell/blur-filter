@@ -86,7 +86,7 @@ static std::shared_ptr<streamfx::obs::source_tracker>          _source_tracker;
 MODULE_EXPORT bool obs_module_load(void)
 {
 	try {
-//		DLOG_INFO("Loading Version %s", STREAMFX_VERSION_STRING);
+		//DLOG_INFO("Loading Version %s", STREAMFX_VERSION_STRING);
 
 		// Initialize global configuration.
 		streamfx::configuration::initialize();

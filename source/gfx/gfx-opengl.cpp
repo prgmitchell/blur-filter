@@ -59,7 +59,7 @@ streamfx::gfx::opengl::opengl()
 #ifdef D_PLATFORM_LINUX
 	//gladLoaderLoadGLX();
 #endif // D_PLATFORM_LINUX
-//	D_LOG_INFO("Version %d.%d initialized.", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
+	//D_LOG_INFO("Version %d.%d initialized.", GLAD_VERSION_MAJOR(version), GLAD_VERSION_MINOR(version));
 }
 
 streamfx::gfx::opengl::~opengl()
